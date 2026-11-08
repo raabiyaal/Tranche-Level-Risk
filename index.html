@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tranche-Level Shortfall</title>
+<style>
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    padding: 16px;
+    background: #ffffff;
+    color: #111;
+    font-family: Georgia, "Times New Roman", Times, serif;
+  }
+
+  .wrap {
+    max-width: 960px;
+    margin: 0 auto;
+  }
+
+  h2 {
+    text-align: center;
+    font-size: 22px;
+    margin: 4px 0 20px;
+  }
+
+  .layout {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 28px;
+    align-items: flex-start;
+    justify-content: center;
+  }
+
+  /* ---------- Shortfall table ---------- */
+  .table-box {
+    overflow-x: auto;
+    max-width: 100%;
+  }
+
+  table {
+    border-collapse: collapse;
+    border: 2px solid #111;
+    font-size: 17px;
+  }
+
+  td, th {
+    padding: 6px 12px;
+    text-align: right;
+    white-space: nowrap;
+    font-weight: normal;
+  }
+
+  .corner { background: #d9d9d9; border-right: 2px solid #111; }
+  .group-top { text-align: center; border-bottom: 1px solid #111; }
+  .col-head { text-align: center; text-decoration: underline; border-bottom: 2px solid #111; }
+
+  .side-label {
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+    text-align: center;
+    padding: 8px 4px;
+    border-right: 1px solid #111;
+    line-height: 1.2;
+  }
+
+  .row-head { border-right: 2px solid #111; }
+
+  /* ---------- Inputs ---------- */
+  .inputs {
+    width: 300px;
+    max-width: 100%;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    font-size: 13px;
+  }
+
+  .inputs h3 {
+    margin: 0 0 8px;
+    font-size: 15px;
+    font-weight: 600;
+    text-align: center;
+  }
+
+  .inputs label {
+    display: block;
+    margin-top: 10px;
+  }
+
+  .inputs input {
+    width: 100%;
+    margin-top: 3px;
+    padding: 6px;
+    font-size: 13px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+  }
+
+  .inputs input.bad { border-color: #c00; }
+
+  .btn {
+    width: 100%;
+    margin-top: 14px;
+    padding: 7px;
+    font-size: 13px;
+    color: #fff;
+    background: #800000;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+
+  .btn:hover { background: #5c0000; }
+
+  @media (max-width: 520px) {
+    h2 { font-size: 18px; }
+    table { font-size: 13px; }
+    td, th { padding: 5px 5px; }
+  }
+
+  .note {
+    margin-top: 18px;
+    font-size: 12px;
+    font-style: italic;
+    text-align: center;
+    color: #444;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h2>Illustration of the Shortfall (Contract Rate <i>v.</i> Expected Rate)</h2>
+
+  <div class="layout">
+
+    <div class="table-box">
+      <table id="shortfall"></table>
+    </div>
+
+    <div class="inputs">
+      <h3>Asset Assumptions</h3>
+
+      <label for="ka">Unlevered Asset-Level Return, k<sub>a</sub> (%)</label>
+      <input type="number" id="ka" step="0.5">
+
+      <label for="sa">Volatility, &sigma;<sub>a</sub> (%)</label>
+      <input type="number" id="sa" step="0.5" min="0">
+
+      <label for="rf">Risk-Free Rate, r<sub>f</sub> (%)</label>
+      <input type="number" id="rf" step="0.25">
+
+      <label for="g">Structural Differences, &gamma; (%)</label>
+      <input type="number" id="g" step="0.05">
+
+      <label for="d">Default-Risk Premium, &delta; (%)</label>
+      <input type="number" id="d" step="0.05">
+
+      <button class="btn" id="reset">Reset to Base Case</button>
+    </div>
+
+  </div>
+
+  <p class="note">These analyses are intended solely for academic purposes. No warranty or representation is made with regard to their accuracy.</p>
+
+</div>
+
+<script>
+// Base case inputs, in percent
+const BASE = { ka: 8, sa: 12, rf: 4, g: 0.4, d: 0.4 };
+
+// Upper LTV of each tranche: 0-60% senior piece, then 5% slices up to 90%
+const LTV = [0.60, 0.65, 0.70, 0.75, 0.80, 0.85, 0.90];
+
+// Standard normal CDF (Numerical Recipes erfc approximation)
+function normCdf(z) {
+  const x = Math.abs(z) / Math.SQRT2;
+  const t = 1 / (1 + 0.5 * x);
+  const erfc = t * Math.exp(-x * x - 1.26551223 + t * (1.00002368 + t * (0.37409196 +
+    t * (0.09678418 + t * (-0.18628806 + t * (0.27886807 + t * (-1.13520398 +
+    t * (1.48851587 + t * (-0.82215223 + t * 0.17087277)))))))));
+  return z >= 0 ? 1 - 0.5 * erfc : 0.5 * erfc;
+}
+
+// Shortfall (contract rate minus expected return) for each tranche
+function tranchesShortfall(ka, sa, rf, g, d) {
+  const n = LTV.length;
+
+  // Cumulative loan rate at each LTV, then the marginal rate on each tranche
+  const cumRate = LTV.map(L => rf + g + d / (1 - L) - d);
+  const rate = [cumRate[0]];
+  for (let k = 1; k < n; k++) {
+    rate.push((cumRate[k] - cumRate[k - 1] * LTV[k - 1] / LTV[k]) * LTV[k] / (LTV[k] - LTV[k - 1]));
+  }
+
+  // Tranche size (per 100 of value) and the amount it is owed at year end
+  const size = LTV.map((L, k) => (k === 0 ? L : L - LTV[k - 1]) * 100);
+  const owed = size.map((s, k) => s * (1 + rate[k]));
+
+  // Asset value scenarios: z from -4.00 to +4.00 in 0.01 steps.
+  // Weights follow the workbook: for z <= 0 a point gets the mass just below it,
+  // for z > 0 the mass just above it, then weights are rescaled to sum to 1.
+  const pts = [];
+  let total = 0;
+  for (let i = -400; i <= 400; i++) {
+    const z = i / 100;
+    const w = i <= 0 ? normCdf(z) - normCdf(z - 0.01) : normCdf(z + 0.01) - normCdf(z);
+    pts.push({ z, w });
+    total += w;
+  }
+
+  // Expected return of each tranche: pay tranches in order of seniority
+  const expRet = new Array(n).fill(0);
+  for (const p of pts) {
+    let left = 100 * (1 + ka + p.z * sa);
+    const prob = p.w / total;
+    for (let k = 0; k < n; k++) {
+      const pay = Math.max(0, Math.min(left, owed[k]));
+      left -= pay;
+      expRet[k] += prob * (pay / size[k] - 1);
+    }
+  }
+
+  return rate.map((r, k) => r - expRet[k]);
+}
+
+function pct(x) {
+  return (x * 100).toFixed(2) + "%";
+}
+
+function readInputs() {
+  const v = {};
+  let ok = true;
+  for (const key of Object.keys(BASE)) {
+    const el = document.getElementById(key);
+    const num = parseFloat(el.value);
+    const bad = isNaN(num) || (key === "sa" && num < 0);
+    el.classList.toggle("bad", bad);
+    if (bad) ok = false;
+    v[key] = num / 100;
+  }
+  return ok ? v : null;
+}
+
+function render() {
+  const v = readInputs();
+  if (!v) return;
+
+  const s = tranchesShortfall(v.ka, v.sa, v.rf, v.g, v.d);
+
+  // Columns: upper bound of the most-junior tranche (65% to 90%)
+  // Rows: upper bound of the most-senior tranche below it (85% down to 60%)
+  const cols = LTV.slice(1);
+  const rows = LTV.slice(0, -1).reverse();
+
+  let html = '<tr><th class="corner" colspan="2" rowspan="2"></th>' +
+             '<th class="group-top" colspan="' + cols.length + '">Most-Junior Tranche</th></tr><tr>';
+  cols.forEach(c => html += '<th class="col-head">' + Math.round(c * 100) + '%</th>');
+  html += '</tr>';
+
+  rows.forEach((lo, r) => {
+    html += '<tr>';
+    if (r === 0) html += '<td class="side-label" rowspan="' + rows.length + '">Most-Senior<br>Tranche</td>';
+    html += '<td class="row-head">' + Math.round(lo * 100) + '%</td>';
+    cols.forEach(hi => {
+      if (hi <= lo + 1e-9) { html += '<td></td>'; return; }
+      // Average shortfall of the 5% slices between lo and hi (all slices are equal size)
+      let sum = 0, count = 0;
+      for (let k = 1; k < LTV.length; k++) {
+        if (LTV[k] > lo + 1e-9 && LTV[k] <= hi + 1e-9) { sum += s[k]; count++; }
+      }
+      html += '<td>' + pct(sum / count) + '</td>';
+    });
+    html += '</tr>';
+  });
+
+  document.getElementById("shortfall").innerHTML = html;
+}
+
+function reset() {
+  for (const key of Object.keys(BASE)) document.getElementById(key).value = BASE[key].toFixed(2);
+  render();
+}
+
+for (const key of Object.keys(BASE)) document.getElementById(key).addEventListener("input", render);
+document.getElementById("reset").addEventListener("click", reset);
+reset();
+</script>
+</body>
+</html>
