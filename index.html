@@ -68,46 +68,43 @@
 
   .row-head { border-right: 2px solid #111; }
 
-  /* ---------- Inputs ---------- */
-  .inputs {
-    width: 300px;
-    max-width: 100%;
-    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-    font-size: 13px;
-  }
+  /* ---------- Inputs (styled like the Excel assumptions box) ---------- */
+  .inputs { max-width: 100%; }
 
-  .inputs h3 {
-    margin: 0 0 8px;
-    font-size: 15px;
-    font-weight: 600;
+  .inputs table { font-size: 15px; }
+
+  .inputs .panel-head {
     text-align: center;
+    background: #d9d9d9;
+    border-bottom: 2px solid #111;
+    padding: 6px 12px;
   }
 
-  .inputs label {
-    display: block;
-    margin-top: 10px;
-  }
+  .inputs td { padding: 5px 8px; }
+  .inputs td.lbl { text-align: right; }
 
   .inputs input {
-    width: 100%;
-    margin-top: 3px;
-    padding: 6px;
-    font-size: 13px;
-    border: 1px solid #ccc;
-    border-radius: 5px;
+    width: 70px;
+    padding: 2px 4px;
+    font-family: inherit;
+    font-size: 15px;
+    text-align: right;
+    border: 1px solid #999;
+    background: #fff8dc;
   }
 
-  .inputs input.bad { border-color: #c00; }
+  .inputs input.bad { border-color: #c00; background: #fde8e8; }
 
   .btn {
-    width: 100%;
-    margin-top: 14px;
-    padding: 7px;
+    display: block;
+    margin: 10px auto 0;
+    padding: 5px 14px;
+    font-family: inherit;
     font-size: 13px;
     color: #fff;
     background: #800000;
     border: none;
-    border-radius: 6px;
+    border-radius: 4px;
     cursor: pointer;
   }
 
@@ -140,22 +137,29 @@
     </div>
 
     <div class="inputs">
-      <h3>Asset Assumptions</h3>
-
-      <label for="ka">Unlevered Asset-Level Return, k<sub>a</sub> (%)</label>
-      <input type="number" id="ka" step="0.5">
-
-      <label for="sa">Volatility, &sigma;<sub>a</sub> (%)</label>
-      <input type="number" id="sa" step="0.5" min="0">
-
-      <label for="rf">Risk-Free Rate, r<sub>f</sub> (%)</label>
-      <input type="number" id="rf" step="0.25">
-
-      <label for="g">Structural Differences, &gamma; (%)</label>
-      <input type="number" id="g" step="0.05">
-
-      <label for="d">Default-Risk Premium, &delta; (%)</label>
-      <input type="number" id="d" step="0.05">
+      <table>
+        <tr><th class="panel-head" colspan="3">Asset &amp; Loan Assumptions</th></tr>
+        <tr>
+          <td class="lbl"><label for="ka">Unlevered Asset-Level Returns (k<sub>a</sub>) =</label></td>
+          <td><input type="number" id="ka" step="0.5"></td><td>%</td>
+        </tr>
+        <tr>
+          <td class="lbl"><label for="sa">Volatility (&sigma;<sub>a</sub>) =</label></td>
+          <td><input type="number" id="sa" step="0.5" min="0"></td><td>%</td>
+        </tr>
+        <tr>
+          <td class="lbl"><label for="rf">Risk-Free Rate (r<sub>f</sub>) =</label></td>
+          <td><input type="number" id="rf" step="0.25"></td><td>%</td>
+        </tr>
+        <tr>
+          <td class="lbl"><label for="g">Structural Differences (&gamma;) =</label></td>
+          <td><input type="number" id="g" step="0.05"></td><td>%</td>
+        </tr>
+        <tr>
+          <td class="lbl"><label for="d">Default-Risk Premium (&delta;) =</label></td>
+          <td><input type="number" id="d" step="0.05"></td><td>%</td>
+        </tr>
+      </table>
 
       <button class="btn" id="reset">Reset to Base Case</button>
     </div>
